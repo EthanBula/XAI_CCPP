@@ -1,15 +1,3 @@
-# app.py
-# -------------------------------------------------------------
-# App web (archivo único) – Backend + GUI Dash
-# - Backend: ENTRENAMIENTO EXACTO (según lo solicitado) y generación de gráficos/HTML SHAP
-# - Frontend: SOLO EXPLICA (Contexto, Método, Resultados) con estilo estético y textos ampliados
-# -------------------------------------------------------------
-# Ejecutar:
-#   pip install dash dash-bootstrap-components pandas numpy scikit-learn shap plotly openpyxl
-#   python app.py
-# Abrir: http://127.0.0.1:8050
-# -------------------------------------------------------------
-
 import os
 import pandas as pd
 import numpy as np
@@ -23,13 +11,12 @@ import dash
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
-# =====================
-# BACKEND (exacto al provisto, con guardado de artefactos)
-# =====================
+#Modelo
+
 file_path = 'Folds5x2_pp.xlsx'
 data = pd.read_excel(file_path)
 
-# Mostrar primeras filas por consola (informativo backend)
+
 print("First few rows of the dataset:")
 print(data.head())
 
@@ -50,37 +37,36 @@ test_score = rf.score(X_test_scaled, y_test)
 print(f"Training R^2 score: {train_score:.2f}")
 print(f"Testing R^2 score: {test_score:.2f}")
 
-# SHAP
+
 explainer = shap.TreeExplainer(rf)
 shap_values = explainer.shap_values(X_test_scaled)
 
-# Summary plot (dot)
+
 plt.figure()
 shap.summary_plot(shap_values, X_test_scaled, feature_names=X.columns.tolist(), show=False)
 plt.savefig("summary_plot.png", bbox_inches='tight')
 plt.close()
 
-# Summary plot (bar)
+
 plt.figure()
 shap.summary_plot(shap_values, X_test_scaled, feature_names=X.columns.tolist(), plot_type='bar', show=False)
 plt.savefig("detailed_summary_plot.png", bbox_inches='tight')
 plt.close()
 
-# Dependence plots
+
 for feature in X.columns:
     plt.figure()
     shap.dependence_plot(feature, shap_values, X_test_scaled, feature_names=X.columns.tolist(), show=False)
     plt.savefig(f"dependence_plot_{feature}.png", bbox_inches='tight')
     plt.close()
 
-# Force plot (instance)
+
 instance_index = 19
 instance_scaled = scaler.transform(X_test.iloc[[instance_index]])
 shap_value_instance = explainer.shap_values(instance_scaled)
 force_plot = shap.force_plot(explainer.expected_value[0], shap_value_instance[0], instance_scaled[0], feature_names=X.columns.tolist())
 shap.save_html("force_plot_instance.html", force_plot)
 
-# Mover imágenes a assets para que Dash las sirva automáticamente
 os.makedirs("assets", exist_ok=True)
 for file in ["summary_plot.png", "detailed_summary_plot.png"] + [f"dependence_plot_{f}.png" for f in X.columns]:
     if os.path.exists(file):
@@ -89,9 +75,7 @@ for file in ["summary_plot.png", "detailed_summary_plot.png"] + [f"dependence_pl
         except Exception:
             pass
 
-# =====================
-# FLASK + DASH FRONTEND (solo explicación)
-# =====================
+#APP
 server = Flask(__name__)
 
 @server.route("/force_plot_instance")
@@ -101,13 +85,11 @@ def serve_force_plot():
 app = dash.Dash(__name__, server=server, external_stylesheets=[dbc.themes.FLATLY])
 app.title = "Planta de Ciclo Combinado • XAI"
 
-# ---------- Estilos auxiliares ----------
 CARD_STYLE = {"fontSize": "1.1rem", "borderRadius": "16px", "boxShadow": "0 6px 18px rgba(0,0,0,0.08)"}
 IMG_STYLE = {"width": "60%", "maxWidth": "700px", "display": "block", "margin": "0.5rem auto"}
 IFRAME_STYLE = {"width": "100%", "height": "420px", "border": "0", "borderRadius": "12px", "boxShadow": "0 6px 18px rgba(0,0,0,0.08)"}
 PILL_STYLE = {"fontSize": "1.1rem", "marginRight": "0.4rem"}
 
-# ---------- Componentes reusables ----------
 def metric_badges():
     return html.Div([
         dbc.Badge(f"R² train: {train_score:.2f}", color="success", pill=True, style=PILL_STYLE),
@@ -115,7 +97,6 @@ def metric_badges():
         dbc.Badge(f"n test: {len(y_test)}", color="secondary", pill=True, style=PILL_STYLE),
     ], className="my-2")
 
-# ---------- Layout ----------
 app.layout = dbc.Container([
     html.Div([
         html.H1("Correlación entre las variables ambientales y la potencia eléctrica producida en una planta de ciclo combinado", className="mt-4 mb-2"),
@@ -134,8 +115,8 @@ app.layout = dbc.Container([
                         dbc.Col(
                             dcc.Markdown(
                                 """
-                                Una **planta de ciclo combinado** integra dos ciclos termodinámicos:
-                                el **ciclo Brayton** (turbina de gas) y el **ciclo Rankine** (turbina de vapor). El calor
+                                Una planta de ciclo combinado integra dos ciclos termodinámicos:
+                                el ciclo Brayton (turbina de gas) y el ciclo Rankine (turbina de vapor). El calor
                                 de los gases de exhosto de la turbina de gas se aprovecha en una caldera de recuperación (HRSG)
                                 para generar vapor y producir potencia adicional en la turbina de vapor.
 
@@ -146,11 +127,11 @@ app.layout = dbc.Container([
                                 13E2 de 160 MW, dos calderas recuperadoras de calor (HRSG) de doble presión y una turbina de vapor ABB
                                 de 160 MW.
                                 
-                                En este proyecto, buscamos estimar la **potencia eléctrica (PE)** a partir de variables de proceso
+                                En este proyecto, buscamos estimar la potencia eléctrica (PE) a partir de variables de proceso
                                 y ambientales. Las variables de entrada consideradas son:
 
                                 - **AT (Ambient Temperature, °C):** Temperatura del aire a la entrada del compresor.
-                                En general, **mayor AT** reduce la densidad del aire y puede **disminuir la potencia**.
+                                En general, mayor AT reduce la densidad del aire y puede disminuir la potencia.
                                 - **V (Exhaust Vacuum, cm Hg):** Vacío del condensador. Un vacío más alto favorece el
                                 rendimiento del ciclo de vapor; desviaciones pueden correlacionarse con pérdidas.
                                 - **AP (Ambient Pressure, mbar):** Presión atmosférica. Cambios en AP afectan la masa de aire admitida
@@ -190,7 +171,6 @@ app.layout = dbc.Container([
         dbc.Tab(label="Método", children=[
             html.Br(),
 
-            # -------- Card 1: Modelo Random Forest --------
             dbc.Card([
                 dbc.CardHeader("Modelo Random Forest", className="fw-bold"),
                 dbc.CardBody([
@@ -235,7 +215,6 @@ app.layout = dbc.Container([
 
             html.Br(),
 
-            # -------- Card 2: XAI con SHAP --------
             dbc.Card([
                 dbc.CardHeader("XAI con SHAP", className="fw-bold"),
                 dbc.CardBody([
