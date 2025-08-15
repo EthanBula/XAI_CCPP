@@ -161,7 +161,9 @@ app.layout = dbc.Container([
                         """
                         URL del conjunto de datos: https://archive.ics.uci.edu/dataset/294/combined+cycle+power+plant
 
-                        Artículo introductorio: https://www.sciencedirect.com/science/article/pii/S0142061514000908?via%3Dihub 
+                        Artículo introductorio: https://www.sciencedirect.com/science/article/pii/S0142061514000908?via%3Dihub
+
+                        Código: https://github.com/EthanBula/XAI_CCPP.git
                         """
                     )
                 ])
@@ -334,3 +336,4 @@ app.layout = dbc.Container([
 
 if __name__ == "__main__":
     app.run()
+
