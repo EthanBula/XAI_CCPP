@@ -1,88 +1,9 @@
-import os
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
-import shap
-import matplotlib.pyplot as plt
-from flask import Flask, send_file
 import dash
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
-#Modelo
-
-file_path = 'Folds5x2_pp.xlsx'
-data = pd.read_excel(file_path)
-
-
-print("First few rows of the dataset:")
-print(data.head())
-
-X = data[['AT', 'V', 'AP', 'RH']]
-y = data['PE']
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
-
-rf = RandomForestRegressor(max_depth=15, random_state=42, n_estimators=60)
-rf.fit(X_train_scaled, y_train)
-
-train_score = rf.score(X_train_scaled, y_train)
-test_score = rf.score(X_test_scaled, y_test)
-print(f"Training R^2 score: {train_score:.2f}")
-print(f"Testing R^2 score: {test_score:.2f}")
-
-
-explainer = shap.TreeExplainer(rf)
-shap_values = explainer.shap_values(X_test_scaled)
-
-
-plt.figure()
-shap.summary_plot(shap_values, X_test_scaled, feature_names=X.columns.tolist(), show=False)
-plt.savefig("summary_plot.png", bbox_inches='tight')
-plt.close()
-
-
-plt.figure()
-shap.summary_plot(shap_values, X_test_scaled, feature_names=X.columns.tolist(), plot_type='bar', show=False)
-plt.savefig("detailed_summary_plot.png", bbox_inches='tight')
-plt.close()
-
-
-for feature in X.columns:
-    plt.figure()
-    shap.dependence_plot(feature, shap_values, X_test_scaled, feature_names=X.columns.tolist(), show=False)
-    plt.savefig(f"dependence_plot_{feature}.png", bbox_inches='tight')
-    plt.close()
-
-
-instance_index = 19
-instance_scaled = scaler.transform(X_test.iloc[[instance_index]])
-shap_value_instance = explainer.shap_values(instance_scaled)
-force_plot = shap.force_plot(explainer.expected_value[0], shap_value_instance[0], instance_scaled[0], feature_names=X.columns.tolist())
-shap.save_html("force_plot_instance.html", force_plot)
-
-os.makedirs("assets", exist_ok=True)
-for file in ["summary_plot.png", "detailed_summary_plot.png"] + [f"dependence_plot_{f}.png" for f in X.columns]:
-    if os.path.exists(file):
-        try:
-            os.replace(file, os.path.join("assets", file))
-        except Exception:
-            pass
-
-#APP
-server = Flask(__name__)
-
-@server.route("/force_plot_instance")
-def serve_force_plot():
-    return send_file("force_plot_instance.html")
-
-app = dash.Dash(__name__, server=server, external_stylesheets=[dbc.themes.FLATLY])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
+server = app.server
 app.title = "Planta de Ciclo Combinado • XAI"
 
 CARD_STYLE = {"fontSize": "1.1rem", "borderRadius": "16px", "boxShadow": "0 6px 18px rgba(0,0,0,0.08)"}
@@ -92,9 +13,9 @@ PILL_STYLE = {"fontSize": "1.1rem", "marginRight": "0.4rem"}
 
 def metric_badges():
     return html.Div([
-        dbc.Badge(f"R² train: {train_score:.2f}", color="success", pill=True, style=PILL_STYLE),
-        dbc.Badge(f"R² test: {test_score:.2f}", color="info", pill=True, style=PILL_STYLE),
-        dbc.Badge(f"n test: {len(y_test)}", color="secondary", pill=True, style=PILL_STYLE),
+        dbc.Badge(f"R² train: 0.99", color="success", pill=True, style=PILL_STYLE),
+        dbc.Badge(f"R² test: 0.96", color="info", pill=True, style=PILL_STYLE),
+        dbc.Badge(f"n test: 1914", color="secondary", pill=True, style=PILL_STYLE),
     ], className="my-2")
 
 app.layout = dbc.Container([
@@ -161,9 +82,9 @@ app.layout = dbc.Container([
                         """
                         URL del conjunto de datos: https://archive.ics.uci.edu/dataset/294/combined+cycle+power+plant
 
-                        Artículo introductorio: https://www.sciencedirect.com/science/article/pii/S0142061514000908?via%3Dihub
+                        Artículo introductorio: https://www.sciencedirect.com/science/article/pii/S0142061514000908?via%3Dihub 
 
-                        Código: https://github.com/EthanBula/XAI_CCPP.git
+                        Código: https://github.com/EthanBula/XAI_CCPP.git 
                         """
                     )
                 ])
@@ -314,7 +235,7 @@ app.layout = dbc.Container([
                 dbc.CardHeader("Ejemplo de predicción para una instancia", className="fw-bold"),
                 dbc.CardBody([
                     html.P("Caso de prueba: instancia 19."),
-                    html.Iframe(src="/force_plot_instance", style=IFRAME_STYLE),
+                    html.Img(src="/assets/force_plot.png", style=IMG_STYLE),
                     html.P(
                             """
                             Este gráfico muestra cómo el modelo llegó a una predicción específica para una instancia individual.
@@ -336,4 +257,3 @@ app.layout = dbc.Container([
 
 if __name__ == "__main__":
     app.run()
-
